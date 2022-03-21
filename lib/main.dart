@@ -52,7 +52,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
-  CameraPosition position = CameraPosition(target: LatLng(48.858370,2.294481),zoom: 14.0);
+  CameraPosition positionFirst = CameraPosition(target: LatLng(48.858370,2.294481),zoom: 14.0);
   Completer<GoogleMapController> controller = Completer();
 
   void _incrementCounter() {
@@ -89,8 +89,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Widget bodyPage(){
     return GoogleMap(
-      initialCameraPosition: position,
-      onMapCreated: (GoogleMapController control){
+      initialCameraPosition: positionFirst,
+      onMapCreated: (GoogleMapController control) async{
+        String styleMap = await DefaultAssetBundle.of(context).loadString("lib/style/mapstyle.json");
+        control.setMapStyle(styleMap);
         controller.complete(control);
       },
 
