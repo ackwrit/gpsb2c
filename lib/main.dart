@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 void main() {
@@ -52,18 +53,43 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   int _counter = 0;
-  CameraPosition positionFirst = CameraPosition(target: LatLng(48.858370,2.294481),zoom: 14.0);
+  CameraPosition positionFirst = CameraPosition(target: LatLng(48.858370,2.294481),zoom: 1.0);
   Completer<GoogleMapController> controller = Completer();
+  Position? maPosition;
+  CameraPosition? positionActuelle;
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+
+  Future<Position> verificationAuthorisation() async {
+    bool serviceEnabled;
+    LocationPermission locationPermission;
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if(!serviceEnabled){
+      return Future.error("La localisation n'est pas disponible");
+    }
+    locationPermission = await Geolocator.checkPermission();
+    if(locationPermission == LocationPermission.denied){
+      locationPermission = await Geolocator.requestPermission();
+      if(locationPermission == LocationPermission.denied){
+        return Future.error("La permission est refusé");
+      }
+    }
+    if(locationPermission ==  LocationPermission.deniedForever){
+      return Future.error("La permission sera toujours refusé");
+    }
+    return await Geolocator.getCurrentPosition();
+
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    verificationAuthorisation().then((Position pos){
+      setState(() {
+        maPosition = pos;
+        positionActuelle = CameraPosition(target: LatLng(maPosition!.latitude,maPosition!.longitude),zoom: 14);
+      });
     });
+    super.initState();
   }
 
   @override
@@ -76,26 +102,72 @@ class _MyHomePageState extends State<MyHomePage> {
     // than having to individually change instances of widgets.
 
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
+
       body: bodyPage()
 
+    );
+  }
+  
+  Widget myWidgetContainer(){
+    return Column(
+      children: [
+        SizedBox(height: 40,),
+        Container(
+          padding: EdgeInsets.all(10),
+        height: 100,
+          width: 400,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.rectangle,
+            borderRadius: BorderRadius.circular(20)
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              //premier élemént
+              Row(
+                children: [
+                  Icon(Icons.pin_drop,size: 50,),
+                  Text("Latitude : ${maPosition!.latitude}, Longitude : ${maPosition!.longitude}")
+                ],
+              ),
+
+              //Deuxième élement
+
+            ],
+          ),
+        ),
+      ],
     );
   }
 
 
   Widget bodyPage(){
-    return GoogleMap(
-      initialCameraPosition: positionFirst,
-      onMapCreated: (GoogleMapController control) async{
-        String styleMap = await DefaultAssetBundle.of(context).loadString("lib/style/mapstyle.json");
-        control.setMapStyle(styleMap);
-        controller.complete(control);
-      },
+    return Stack(
+      children: [
+        GoogleMap(
+          initialCameraPosition: positionActuelle!,
+          onMapCreated: (GoogleMapController control) async{
+            String styleMap = await DefaultAssetBundle.of(context).loadString("lib/style/mapstyle.json");
+            control.setMapStyle(styleMap);
 
+            controller.complete(control);
+
+          },
+          myLocationEnabled: true,
+          myLocationButtonEnabled: true,
+
+        ),
+        
+        //Container de position
+        Container(
+          padding: EdgeInsets.all(20),
+          height: MediaQuery.of(context).size.height,
+          width: MediaQuery.of(context).size.width,
+          child: myWidgetContainer(),
+        ),
+        
+      ],
     );
   }
 }
